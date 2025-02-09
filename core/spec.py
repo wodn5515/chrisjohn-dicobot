@@ -163,3 +163,23 @@ class SpecClient(LostarkAPIClient):
                 accessory_dict[accessory_type] = [accessory_info]
 
         self.spec["accessory"] = accessory_dict
+
+    def _set_engarving(self):
+        engarving_list = []
+        path = f"/armories/characters/{self.name}/engravings"
+        response = self._get_response(path, method="GET")
+        engarvings = response.json()["ArkPassiveEffects"]
+        for engarving in engarvings:
+            grade = engarving["Grade"]
+            level = engarving["Level"]
+            name = engarving["Name"]
+            stone_level = engarving["AbilityStoneLevel"]
+            engarving_info = {
+                "grade": grade,
+                "level": level,
+                "name": name,
+                "stone_level": stone_level,
+            }
+            engarving_list.append(engarving_info)
+
+        self.spec["engarvings"] = engarving_list
