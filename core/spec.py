@@ -69,15 +69,45 @@ class SpecClient(LostarkAPIClient):
         self.name = name
         self.spec = {}
 
-    def get_spec(self):
-        self._set_gem()
-        self._set_equipment()
+    def set_spec(self):
+        path = f"/armories/characters/{self.name}?filters=profiles+equipment+cards+gems+engravings+arkpassive"
+        response = self._get_response(path, method="GET").json()
+        profiles = response["ArmoryProfile"]
+        arkpassives = response["ArkPassive"]["Points"]
+        gems = response["ArmoryGem"]["Gems"]
+        engarvings = response["ArmoryEngraving"]["ArkPassiveEffects"]
+        equipments = response["ArmoryEquipment"]
+        gears, accessories = equipments[:6], equipments[6:11]
+        card_effects = response["ArmoryCard"]["Effects"]
+        self._set_profiles(profiles, arkpassives)
+        self._set_gems(gems)
+        self._set_gears(gears)
+        self._set_accessories(accessories)
+        self._set_cards(card_effects)
+        self._set_engarvings(engarvings)
 
-    def _set_gem(self):
+    def get_embed(self):
+        pass
+
+    def _set_profiles(self, profiles, arkpassives):
+        arkpassive_list = []
+        for arkpassive in arkpassives:
+            arkpassive_str = f"{arkpassive['Name']} {arkpassive['Value']}"
+            arkpassive_list.append(arkpassive_str)
+
+        profile_dict = {
+            "thumbnail": profiles["CharacterImage"],
+            "expedition_level": profiles["ExpeditionLevel"],
+            "title": profiles["Title"],
+            "item_level": profiles["ItemAvgLevel"],
+            "battle_level": profiles["CharacterLevel"],
+            "arkpassive": arkpassive_list,
+        }
+
+        self.spec["profile"] = profile_dict
+
+    def _set_gems(self, gems):
         gem_dict = {}
-        path = f"/armories/characters/{self.name}/gems"
-        response = self._get_response(path=path, method="GET")
-        gems = response.json()["Gems"]
         gem_list = []
         for gem in gems:
             gem_full = gem["Name"]
@@ -89,14 +119,7 @@ class SpecClient(LostarkAPIClient):
         gem_dict = dict(Counter(gem_list))
         self.spec["gem"] = gem_dict
 
-    def _set_equipment(self):
-        path = f"/armories/characters/{self.name}/equipment"
-        response = self._get_response(path, method="GET")
-        gears, accessories = response.json()[:6], response.json()[6:11]
-        self._set_gear(gears)
-        self._set_accessories(accessories)
-
-    def _set_gear(self, gears):
+    def _set_gears(self, gears):
         gear_dict = {}
         for gear in gears:
             gear_type = gear["Type"]
@@ -165,11 +188,8 @@ class SpecClient(LostarkAPIClient):
 
         self.spec["accessory"] = accessory_dict
 
-    def _set_engarving(self):
+    def _set_engarvings(self, engarvings):
         engarving_list = []
-        path = f"/armories/characters/{self.name}/engravings"
-        response = self._get_response(path, method="GET")
-        engarvings = response.json()["ArkPassiveEffects"]
         for engarving in engarvings:
             grade = engarving["Grade"]
             level = engarving["Level"]
@@ -183,19 +203,12 @@ class SpecClient(LostarkAPIClient):
             }
             engarving_list.append(engarving_info)
 
-        self.spec["engarvings"] = engarving_list
+        self.spec["engarving"] = engarving_list
 
-    def _set_card(self):
-        path = f"/armories/characters/{self.name}/cards"
-        response = self._get_response(path, method="GET")
-        cards = response.json()["Effects"]["Items"]
-        card_set_dict = {}
-        for card in cards:
-            set_name_str = card["Name"]
-            _ = re.search(r" [0-9]", set_name_str).group()
-            set_name = set_name_str.split(_)
-            card_set_dict[set_name] = set_name_str
+    def _set_cards(self, card_effects):
+        card_list = []
+        for card_effect in card_effects:
+            card_set = card_effect["Items"][-1]["Name"]
+            card_list.append(card_set)
 
-        card_list = list(card_set_dict.values())
-
-        self.spec["cards"] = card_list
+        self.spec["card"] = card_list
