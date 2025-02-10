@@ -74,6 +74,7 @@ class SpecClient(LostarkAPIClient):
         self._set_equipment()
 
     def _set_gem(self):
+        gem_dict = {}
         path = f"/armories/characters/{self.name}/gems"
         response = self._get_response(path=path, method="GET")
         gems = response.json()["Gems"]
@@ -183,3 +184,18 @@ class SpecClient(LostarkAPIClient):
             engarving_list.append(engarving_info)
 
         self.spec["engarvings"] = engarving_list
+
+    def _set_card(self):
+        path = f"/armories/characters/{self.name}/cards"
+        response = self._get_response(path, method="GET")
+        cards = response.json()["Effects"]["Items"]
+        card_set_dict = {}
+        for card in cards:
+            set_name_str = card["Name"]
+            _ = re.search(r" [0-9]", set_name_str).group()
+            set_name = set_name_str.split(_)
+            card_set_dict[set_name] = set_name_str
+
+        card_list = list(card_set_dict.values())
+
+        self.spec["cards"] = card_list
