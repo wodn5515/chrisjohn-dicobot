@@ -27,12 +27,11 @@ class MyBot(commands.Bot):
         )
 
     async def setup_hook(self):
-        await bot.tree.sync()
+        await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
 
     async def on_ready(self):
-        await bot.tree.sync(guild=discord.Object(id=GUILD_ID))
         print("ready!")
-        await send_message_in_loop.start()
+        # await send_message_in_loop.start()
 
         activity = discord.activity.CustomActivity("문의는 크리스존에게")
         await self.change_presence(status=discord.Status.online, activity=activity)
@@ -49,11 +48,11 @@ async def market(interaction: discord.Interaction) -> None:
     pass
 
 
-@tasks.loop(seconds=10)  # your timer
-async def send_message_in_loop():
-    print("PING")
-    time.sleep(5)
-    print("PONG")
+# @tasks.loop(seconds=10)  # your timer
+# async def send_message_in_loop():
+#     print("PING")
+#     time.sleep(5)
+#     print("PONG")
 
 
 @bot.tree.command(
@@ -61,8 +60,10 @@ async def send_message_in_loop():
 )
 @app_commands.describe(캐릭터명="필수")
 async def spec_check(interaction: discord.Interaction, 캐릭터명: str) -> None:
-    # client = SpecClient(name=캐릭터명)
-    await interaction.response.send_message(content="준비중입니다.", ephemeral=True)
+    client = SpecClient(name=캐릭터명)
+    client.set_spec()
+    embed = client.get_embed()
+    await interaction.response.send_message(embed=embed)
 
 
 @bot.tree.command(
