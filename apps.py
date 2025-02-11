@@ -60,8 +60,10 @@ async def market(interaction: discord.Interaction) -> None:
 )
 @app_commands.describe(캐릭터명="필수")
 async def spec_check(interaction: discord.Interaction, 캐릭터명: str) -> None:
-    # client = SpecClient(name=캐릭터명)
-    await interaction.response.send_message(content="준비중입니다.", ephemeral=True)
+    client = SpecClient(name=캐릭터명)
+    client.set_spec()
+    embed = client.get_embed()
+    await interaction.response.send_message(embed=embed)
 
 
 @bot.tree.command(
