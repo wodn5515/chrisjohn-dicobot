@@ -1,10 +1,13 @@
+import asyncio
+import nacl
 import discord
 from discord import app_commands
-from discord.ext import commands, tasks
+from discord.ext import commands
 import os
 from core.market import MarketClient
 from core.spec import SpecClient
-import time
+from core.cogs.music import Music
+import logging
 
 APPLICATION_ID = os.getenv("APPLICATION_ID")
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -15,6 +18,14 @@ GUILD_ID = int(os.getenv("GUILD_ID"))
 
 intents = discord.Intents.default()
 intents.message_content = True
+
+logger = logging.getLogger("discord")
+logger.setLevel(logging.WARNING)
+handler = logging.FileHandler(filename="discord.log", encoding="utf-8", mode="w")
+handler.setFormatter(
+    logging.Formatter("%(asctime)s:%(levelname)s:%(name)s: %(message)s")
+)
+logger.addHandler(handler)
 
 
 class MyBot(commands.Bot):
@@ -77,4 +88,10 @@ async def test(interaction: discord.Interaction, 각인명: str = None) -> None:
     await interaction.response.send_message(embed=embed)
 
 
-bot.run(BOT_TOKEN)
+async def main():
+    async with bot:
+        await bot.add_cog(Music(bot))
+        await bot.start(BOT_TOKEN)
+
+
+asyncio.run(main())
