@@ -209,6 +209,7 @@ class SpecClient(LostarkAPIClient):
         self.spec["profile"] = profile_dict
 
     def _set_gems(self, gems):
+        gem_list = []
         gem_dict = {
             "10": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
             "9": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
@@ -221,20 +222,22 @@ class SpecClient(LostarkAPIClient):
             "2": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
             "1": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
         }
-        for gem in gems:
-            gem_full = gem["Name"]
-            gem_name = re.sub(r"<[a-zA-z \'=#/0-9]+>", "", gem_full)
-            gem_level_str, gem_type_str, *_ = gem_name.split(" ")
-            gem_level = re.match(r"[0-9]+", gem_level_str).group()
-            gem_type = gem_type_str[:2]
-            gem_dict[gem_level][gem_type] += 1
+        if gems is None:
+            pass
+        else:
+            for gem in gems:
+                gem_full = gem["Name"]
+                gem_name = re.sub(r"<[a-zA-z \'=#/0-9]+>", "", gem_full)
+                gem_level_str, gem_type_str, *_ = gem_name.split(" ")
+                gem_level = re.match(r"[0-9]+", gem_level_str).group()
+                gem_type = gem_type_str[:2]
+                gem_dict[gem_level][gem_type] += 1
 
-        gem_list = []
-        for gem_level in gem_dict:
-            for gem_type in gem_dict[gem_level]:
-                gem_cnt = gem_dict[gem_level][gem_type]
-                if gem_cnt > 0:
-                    gem_list.append(f"{gem_level}{gem_type[0]} - {gem_cnt}")
+            for gem_level in gem_dict:
+                for gem_type in gem_dict[gem_level]:
+                    gem_cnt = gem_dict[gem_level][gem_type]
+                    if gem_cnt > 0:
+                        gem_list.append(f"{gem_level}{gem_type[0]} - {gem_cnt}")
 
         self.spec["gem"] = gem_list
 
