@@ -68,7 +68,6 @@ class Music(commands.Cog):
                 "봇이 {0.author.voice.channel} 채널에 입장합니다.".format(ctx)
             )
             await channel.connect()
-            ctx.voice_client.source.volume = 10 / 100
             print("음성 채널 정보: {0.author.voice}".format(ctx))
             print("음성 채널 이름: {0.author.voice.channel}".format(ctx))
         else:
@@ -107,6 +106,7 @@ class Music(commands.Cog):
                 self.current,
                 after=lambda e: self.bot.loop.create_task(self.play_next_after(ctx, e)),
             )
+            ctx.voice_client.source.volume = 10 / 100
             youtube_id = re.search(r"\?v=[a-zA-Z0-9]+", self.current.url).group()[3:]
             thumbnail = f"https://img.youtube.com/vi/{youtube_id}/0.jpg"
             await ctx.message.delete()
@@ -225,7 +225,6 @@ class Music(commands.Cog):
         elif ctx.voice_client is None:
             if ctx.author.voice:
                 await ctx.author.voice.channel.connect()
-                ctx.voice_client.source.volume = 10 / 100
             else:
                 await ctx.send("You are not connected to a voice channel.")
                 raise commands.CommandError("Author not connected to a voice channel.")
