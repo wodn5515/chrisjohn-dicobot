@@ -16,6 +16,9 @@ GEM_DICT = {
     "10": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
 }
 
+GEAR_LIST = ["투구", "어깨", "상의", "하의", "장갑", "무기"]
+ACCESSORY_LIST = ["목걸이", "귀걸이", "반지"]
+
 
 ACCESSORIES_GRADE = {
     "낙인력": {
@@ -89,9 +92,14 @@ class SpecClient(LostarkAPIClient):
         arkpassives = response["ArkPassive"]["Points"]
         gems = response["ArmoryGem"]["Gems"]
         engravings = response["ArmoryEngraving"]["ArkPassiveEffects"]
-        equipments = response["ArmoryEquipment"]
-        gears, accessories = equipments[:6], equipments[6:11]
         card_effects = response["ArmoryCard"]["Effects"]
+        equipments = response["ArmoryEquipment"]
+        gears, accessories = [], []
+        for equipment in equipments:
+            if equipment["Type"] in GEAR_LIST:
+                gears.append(equipment)
+            elif equipment["Type"] in ACCESSORY_LIST:
+                accessories.append(equipment)
         self._set_profiles(profiles, arkpassives)
         self._set_gems(gems)
         self._set_gears(gears)
@@ -151,13 +159,15 @@ class SpecClient(LostarkAPIClient):
 
     def _get_gear_info_embed(self):
         gears = self.spec["gear"]
-        part_list_for_order = ["투구", "어깨", "상의", "하의", "장갑", "무기"]
         inheritance = 0
         elixir_cnt = 0
         embed_string = ">>> "
 
-        for part in part_list_for_order:
-            gear = gears[part]
+        for part in GEAR_LIST:
+            try:
+                gear = gears[part]
+            except KeyError:
+                continue
             if part != "무기" and gear["grade"] == "고대":
                 inheritance += 1
             embed_string += f"**{part}** +{gear['enforce']}"
@@ -172,15 +182,26 @@ class SpecClient(LostarkAPIClient):
                     )
                     elixir_cnt += elixir["level"]
 
-        return f"**장비** [{inheritance}부위 계승 | 엘{elixir_cnt}]", embed_string
+        title = "**장비**"
+        item_level = float(self.spec["profile"]["item_level"])
+        if item_level >= 1600:
+            title += f" [엘{elixir_cnt}"
+        if item_level >= 1660:
+            title += f" | {inheritance}부위 계승]"
+        else:
+            title += "]"
+
+        return title, embed_string
 
     def _get_accessory_info_embed(self):
         acs = self.spec["accessory"]
-        part_list_for_order = ["목걸이", "귀걸이", "반지"]
         embed_string = ">>> "
 
-        for part in part_list_for_order:
-            ac = acs[part]
+        for part in ACCESSORY_LIST:
+            try:
+                ac = acs[part]
+            except KeyError:
+                continue
             for i in ac:
                 embed_string += f"**{part}** [{i['grade']}]\n"
                 for effect in i["effects"]:
@@ -209,6 +230,7 @@ class SpecClient(LostarkAPIClient):
         self.spec["profile"] = profile_dict
 
     def _set_gems(self, gems):
+        gem_list = []
         gem_dict = {
             "10": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
             "9": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
@@ -221,20 +243,22 @@ class SpecClient(LostarkAPIClient):
             "2": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
             "1": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
         }
-        for gem in gems:
-            gem_full = gem["Name"]
-            gem_name = re.sub(r"<[a-zA-z \'=#/0-9]+>", "", gem_full)
-            gem_level_str, gem_type_str, *_ = gem_name.split(" ")
-            gem_level = re.match(r"[0-9]+", gem_level_str).group()
-            gem_type = gem_type_str[:2]
-            gem_dict[gem_level][gem_type] += 1
+        if gems is None:
+            pass
+        else:
+            for gem in gems:
+                gem_full = gem["Name"]
+                gem_name = re.sub(r"<[a-zA-z \'=#/0-9]+>", "", gem_full)
+                gem_level_str, gem_type_str, *_ = gem_name.split(" ")
+                gem_level = re.match(r"[0-9]+", gem_level_str).group()
+                gem_type = gem_type_str[:2]
+                gem_dict[gem_level][gem_type] += 1
 
-        gem_list = []
-        for gem_level in gem_dict:
-            for gem_type in gem_dict[gem_level]:
-                gem_cnt = gem_dict[gem_level][gem_type]
-                if gem_cnt > 0:
-                    gem_list.append(f"{gem_level}{gem_type[0]} - {gem_cnt}")
+            for gem_level in gem_dict:
+                for gem_type in gem_dict[gem_level]:
+                    gem_cnt = gem_dict[gem_level][gem_type]
+                    if gem_cnt > 0:
+                        gem_list.append(f"{gem_level}{gem_type[0]} - {gem_cnt}")
 
         self.spec["gem"] = gem_list
 
