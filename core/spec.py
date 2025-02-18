@@ -183,7 +183,7 @@ class SpecClient(LostarkAPIClient):
                     elixir_cnt += elixir["level"]
 
         title = "**장비**"
-        item_level = float(self.spec["profile"]["item_level"])
+        item_level = float((self.spec["profile"]["item_level"]).replace(",", ""))
         if item_level >= 1600:
             title += f" [엘{elixir_cnt}"
         if item_level >= 1660:
