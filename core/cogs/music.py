@@ -36,6 +36,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         self.data = data
         self.title = data.get("title")
         self.url = data.get("url")
+        self.youtube_url = data.get("youtube_url")
 
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False):
@@ -43,6 +44,7 @@ class YTDLSource(discord.PCMVolumeTransformer):
         data = await loop.run_in_executor(
             None, lambda: ytdl.extract_info(url, download=not stream)
         )
+        data["youtube_url"] = url
 
         if "entries" in data:
             data = data["entries"][0]
@@ -88,9 +90,11 @@ class Music(commands.Cog):
             await self.queue.put(player)
             position = self.queue.qsize()
             if self.is_playing:
+                await ctx.message.delete()
                 await ctx.send(
                     embed=discord.Embed(
-                        title=f"{player.title}, #{position}번째로 대기열에 추가."
+                        title=f"{player.title}, #{position}번째로 대기열에 추가.",
+                        color=0x00F44C,
                     )
                 )
 
@@ -101,24 +105,33 @@ class Music(commands.Cog):
     async def play_next(self, ctx):
         if not self.queue.empty():
             self.current = await self.queue.get()
+            print(self.current.youtube_url)
             self.is_playing = True
             ctx.voice_client.play(
                 self.current,
                 after=lambda e: self.bot.loop.create_task(self.play_next_after(ctx, e)),
             )
             ctx.voice_client.source.volume = 10 / 100
-            youtube_id = re.search(r"\?v=[a-zA-Z0-9]+", self.current.url).group()[3:]
+            youtube_id = await self.get_youtube_id(self.current.youtube_url)
             thumbnail = f"https://img.youtube.com/vi/{youtube_id}/0.jpg"
             await ctx.message.delete()
             embed = discord.Embed(
-                title=f"노래재생 - {self.current.title}", color=0x00F44C
+                title=f"🎧 노래재생 - {self.current.title}", color=0x00F44C
             )
             embed.set_image(url=thumbnail)
             await ctx.send(embed=embed)
         else:
             self.current = None
             self.is_playing = False
+            embed = discord.Embed(
+                title="🎧 재생목록이 비어있어서 퇴장합니다.", color=0x00F44C
+            )
+            ctx.send(embed=embed)
             await ctx.voice_client.disconnect()
+
+    async def get_youtube_id(self, url):
+        id_regex = r"(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([^#&?]{11})"
+        return re.search(id_regex, url).group()[-11:]
 
     async def play_next_after(self, ctx, error):
         if error:
@@ -129,12 +142,19 @@ class Music(commands.Cog):
     @commands.command(aliases=["스킵"])
     async def skip(self, ctx):
         """현재 재생중인 노래 스킵 (= !스킵)"""
+        await ctx.message.delete()
         if ctx.voice_client and ctx.voice_client.is_playing():
             ctx.voice_client.stop()
-            await ctx.send("현재 노래를 건너뜁니다.")
+            embed = discord.Embed(
+                title="🎧 현재 노래를 건너뜁니다.", color=0x00F44C
+            )
+            await ctx.send(embed=embed)
             await self.play_next(ctx)
         else:
-            await ctx.send("현재 재생 중인 노래가 없습니다.")
+            embed = discord.Embed(
+                title="🎧 현재 재생 중인 노래가 없습니다.", color=0x00F44C
+            )
+            await ctx.send(embed=embed)
 
     @commands.command(aliases=["볼륨"])
     async def volume(self, ctx, volume: int):
@@ -144,7 +164,7 @@ class Music(commands.Cog):
             if ctx.voice_client and ctx.voice_client.source:
                 ctx.voice_client.source.volume = volume / 100
                 await ctx.send(
-                    embed=discord.Embed(title=f"스피커 음량을 {volume}%로 변경")
+                    embed=discord.Embed(title=f"🔊 스피커 음량을 {volume}%로 변경", color=0x00F44C)
                 )
             else:
                 await ctx.send("No audio is currently playing.")
@@ -160,6 +180,9 @@ class Music(commands.Cog):
             ctx.voice_client.stop()
 
         await ctx.message.delete()
+        await ctx.send(
+            embed=discord.Embed(title="크리스존봇이 퇴장합니다... 떼잉", color=0x00F44C)
+        )
         await ctx.voice_client.disconnect()
 
     @commands.command(aliases=["일시정지"])
