@@ -90,7 +90,7 @@ async def test(interaction: discord.Interaction, 각인명: str = None) -> None:
 
 async def main():
     async with bot:
-        await bot.add_cog(Music(bot))
+        await bot.add_cog(Music(bot), guild=discord.Object(id=GUILD_ID))
         await bot.start(BOT_TOKEN)
 
 
