@@ -9,45 +9,50 @@ from discord import app_commands
 # Suppress noise about console usage from errors
 youtube_dl.utils.bug_reports_message = lambda: ""
 
+# YouTube DL 설정 옵션
 ytdl_format_options = {
-    "format": "bestaudio/best",
-    "outtmpl": "%(extractor)s-%(id)s-%(title)s.%(ext)s",
-    "restrictfilenames": True,
-    "noplaylist": True,
-    "nocheckcertificate": True,
-    "ignoreerrors": False,
-    "logtostderr": False,
-    "quiet": True,
-    "no_warnings": True,
-    "default_search": "auto",
-    "source_address": "0.0.0.0",  # bind to ipv4 since ipv6 addresses cause issues sometimes
+    "format": "bestaudio/best",  # 최상의 오디오 품질 선택
+    "outtmpl": "%(extractor)s-%(id)s-%(title)s.%(ext)s",  # 출력 파일 이름 형식
+    "restrictfilenames": True,  # 파일 이름 제한
+    "noplaylist": True,  # 플레이리스트 다운로드 방지
+    "nocheckcertificate": True,  # 인증서 확인 건너뛰기
+    "ignoreerrors": False,  # 오류 무시하지 않음
+    "logtostderr": False,  # 표준 오류로 로그 출력하지 않음
+    "quiet": True,  # 자세한 출력 억제
+    "no_warnings": True,  # 경고 메시지 숨김
+    "default_search": "auto",  # 자동 검색 모드
+    "source_address": "0.0.0.0",  # IPv4 주소 바인딩
 }
 
+# FFmpeg 설정 옵션
 ffmpeg_options = {
-    "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-    "options": "-vn",
+    "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",  # 연결 끊김 시 재연결 설정
+    "options": "-vn",  # 비디오 스트림 비활성화
 }
 
 ytdl = youtube_dl.YoutubeDL(ytdl_format_options)
 
 
 class YTDLSource(discord.PCMVolumeTransformer):
+    """YouTube 다운로더 소스 클래스"""
+
     def __init__(self, source, *, data, volume=0.5):
         super().__init__(source, volume)
         self.data = data
-        self.title = data.get("title")
-        self.url = data.get("url")
-        self.youtube_url = data.get("youtube_url")
+        self.title = data.get("title")  # 영상 제목
+        self.url = data.get("url")  # 스트리밍 URL
+        self.youtube_url = data.get("youtube_url")  # 원본 YouTube URL
 
     @classmethod
     async def from_url(cls, url, *, loop=None, stream=False):
+        """URL로부터 오디오 소스 생성"""
         loop = loop or asyncio.get_event_loop()
         data = await loop.run_in_executor(
             None, lambda: ytdl.extract_info(url, download=not stream)
         )
         data["youtube_url"] = url
 
-        if "entries" in data:
+        if "entries" in data:  # 플레이리스트인 경우 첫 번째 항목 선택
             data = data["entries"][0]
 
         filename = data["url"] if stream else ytdl.prepare_filename(data)
@@ -55,11 +60,13 @@ class YTDLSource(discord.PCMVolumeTransformer):
 
 
 class Music(commands.Cog):
+    """음악 재생 명령어 Cog"""
+
     def __init__(self, bot):
         self.bot = bot
-        self.queue = asyncio.Queue()
-        self.current = None
-        self.is_playing = False
+        self.queue = asyncio.Queue()  # 재생 대기열
+        self.current = None  # 현재 재생 중인 곡
+        self.is_playing = False  # 재생 상태
 
     @app_commands.command(name="입장", description="크리스존봇 입장")
     async def join(self, interaction: discord.Interaction):
@@ -115,6 +122,7 @@ class Music(commands.Cog):
             await self.play_next(interaction)
 
     async def play_next(self, interaction: discord.Interaction):
+        """다음 곡 재생 처리"""
         if not self.queue.empty():
             self.current = await self.queue.get()
             self.is_playing = True
@@ -124,9 +132,13 @@ class Music(commands.Cog):
                     self.play_next_after(interaction, e)
                 ),
             )
-            interaction.guild.voice_client.source.volume = 10 / 100
+            interaction.guild.voice_client.source.volume = (
+                10 / 100
+            )  # 기본 볼륨 10%로 설정
             youtube_id = await self.get_youtube_id(self.current.youtube_url)
-            thumbnail = f"https://img.youtube.com/vi/{youtube_id}/0.jpg"
+            thumbnail = (
+                f"https://img.youtube.com/vi/{youtube_id}/0.jpg"  # 썸네일 URL 생성
+            )
             embed = discord.Embed(
                 title=f"🎧 노래재생 - {self.current.title}", color=0x00F44C
             )
@@ -141,6 +153,7 @@ class Music(commands.Cog):
             await interaction.guild.voice_client.disconnect(force=True)
 
     async def get_youtube_id(self, url):
+        """YouTube URL에서 영상 ID 추출"""
         id_regex = r"(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|v\/|shorts\/))([^#&?]{11})"
         return re.search(id_regex, url).group()[-11:]
 

@@ -172,7 +172,7 @@ class SpecClient(LostarkAPIClient):
                 inheritance += 1
             embed_string += f"**{part}** +{gear['enforce']}"
             if gear["transcendence_level"]:
-                embed_string += f" [초월 {gear['transcendence_level']}단계]\n"
+                embed_string += f" [<:transcendence:1342063927080648714> {gear['transcendence_level']}단계]\n"
             else:
                 embed_string += "\n"
             if elixirs := gear["elixir"]:
@@ -230,35 +230,31 @@ class SpecClient(LostarkAPIClient):
         self.spec["profile"] = profile_dict
 
     def _set_gems(self, gems):
-        gem_list = []
-        gem_dict = {
-            "10": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
-            "9": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
-            "8": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
-            "7": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
-            "6": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
-            "5": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
-            "4": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
-            "3": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
-            "2": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
-            "1": {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0},
-        }
-        if gems is None:
-            pass
-        else:
-            for gem in gems:
-                gem_full = gem["Name"]
-                gem_name = re.sub(r"<[a-zA-z \'=#/0-9]+>", "", gem_full)
-                gem_level_str, gem_type_str, *_ = gem_name.split(" ")
-                gem_level = re.match(r"[0-9]+", gem_level_str).group()
-                gem_type = gem_type_str[:2]
-                gem_dict[gem_level][gem_type] += 1
+        if not gems:
+            self.spec["gem"] = []
+            return
 
-            for gem_level in gem_dict:
-                for gem_type in gem_dict[gem_level]:
-                    gem_cnt = gem_dict[gem_level][gem_type]
-                    if gem_cnt > 0:
-                        gem_list.append(f"{gem_level}{gem_type[0]} - {gem_cnt}")
+        # 보석 레벨과 타입별 카운트를 저장할 딕셔너리 초기화
+        gem_counts = {
+            level: {"겁화": 0, "작열": 0, "멸화": 0, "홍염": 0}
+            for level in range(1, 11)
+        }
+
+        # 각 보석 정보 파싱 및 카운트
+        for gem in gems:
+            gem_name = re.sub(r"<[a-zA-z \'=#/0-9]+>", "", gem["Name"])
+            level, type_str, *_ = gem_name.split()
+            level = re.match(r"[0-9]+", level).group()
+            gem_type = type_str[:2]
+            gem_counts[int(level)][gem_type] += 1
+
+        # 결과 리스트 생성
+        gem_list = [
+            f"{level}{gem_type[0]} - {count}"
+            for level in range(10, 0, -1)  # 레벨 내림차순
+            for gem_type, count in gem_counts[level].items()
+            if count > 0
+        ]
 
         self.spec["gem"] = gem_list
 
