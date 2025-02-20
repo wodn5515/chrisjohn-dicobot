@@ -6,6 +6,7 @@ from discord.ext import commands
 import os
 from core.market import MarketClient
 from core.spec import SpecClient
+from core.expedition import ExpeditionClient
 from core.cogs.music import Music
 import logging
 
@@ -64,6 +65,17 @@ async def market(interaction: discord.Interaction) -> None:
 #     print("PING")
 #     time.sleep(5)
 #     print("PONG")
+
+
+@bot.tree.command(
+    name="원정대", description="원정대 정보 검색", guild=discord.Object(id=GUILD_ID)
+)
+@app_commands.describe(캐릭터명="필수")
+async def expedition_check(interaction: discord.Interaction, 캐릭터명: str) -> None:
+    client = ExpeditionClient(name=캐릭터명)
+    client.set_expedition()
+    embed = client.get_embed()
+    await interaction.response.send_message(embed=embed)
 
 
 @bot.tree.command(
