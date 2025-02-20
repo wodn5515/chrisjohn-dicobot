@@ -172,7 +172,7 @@ class SpecClient(LostarkAPIClient):
                 inheritance += 1
             embed_string += f"**{part}** +{gear['enforce']}"
             if gear["transcendence_level"]:
-                embed_string += f" [초월 {gear['transcendence_level']}단계]\n"
+                embed_string += f" [<:transcendence:1342063927080648714> {gear['transcendence_level']}단계]\n"
             else:
                 embed_string += "\n"
             if elixirs := gear["elixir"]:
