@@ -68,6 +68,14 @@ async def market(interaction: discord.Interaction) -> None:
 
 
 @bot.tree.command(
+    name="앱정보", description="앱 정보", guild=discord.Object(id=GUILD_ID)
+)
+async def guild_count(interaction: discord.Interaction) -> None:
+    embed = discord.Embed(title="설치된 서버 수", description=f"{len(bot.guilds)}개")
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+@bot.tree.command(
     name="원정대", description="원정대 정보 검색", guild=discord.Object(id=GUILD_ID)
 )
 @app_commands.describe(캐릭터명="필수")
