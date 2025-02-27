@@ -1,10 +1,14 @@
 import asyncio
 import discord
 import yt_dlp as youtube_dl
+import requests
 import re
+import os
+from discord import ui
 from discord.ext import commands
 from discord import app_commands
 
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
 # Suppress noise about console usage from errors
 youtube_dl.utils.bug_reports_message = lambda: ""
@@ -85,6 +89,65 @@ class Music(commands.Cog):
                 "음성 채널에 유저가 존재하지 않습니다. 1명 이상 입장해 주세요."
             )
 
+    @app_commands.command(name="검색", description="노래 검색")
+    @app_commands.describe(검색어="검색할 노래 이름")
+    async def search(self, interaction: discord.Interaction, 검색어: str):
+        await interaction.response.defer(ephemeral=True)
+        # youtube 검색 로직
+        res = requests.get(
+            f"https://www.googleapis.com/youtube/v3/search?key={YOUTUBE_API_KEY}&q={검색어}&part=id,snippet&maxResults=10&type=video"
+        )
+        items = res.json()["items"]
+
+        select = ui.Select(placeholder="노래 선택", min_values=1, max_values=1)
+        for item in items:
+            select.add_option(
+                label=item["snippet"]["title"],
+                value=item["id"]["videoId"],
+                description=f'{item["snippet"]["description"][:50]}...',
+            )
+        view = ui.View()
+        view.add_item(select)
+
+        async def select_callback(interaction: discord.Interaction):
+            selected_item = select.values[0]
+            url = f"https://www.youtube.com/watch?v={selected_item}"
+            await interaction.response.defer()
+            if interaction.guild.voice_client is None:
+                if interaction.user.voice and interaction.user.voice.channel:
+                    channel = interaction.user.voice.channel
+                    await channel.connect()
+                else:
+                    await interaction.followup.send(
+                        "음성 채널에 유저가 존재하지 않습니다. 1명 이상 입장해 주세요."
+                    )
+
+            """대기열(큐)에 노래 추가 & 노래가 없으면 최근 노래 재생 (= !재생)"""
+            discord.opus.load_opus("libopus.dylib")
+            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
+            if player is None:
+                await interaction.followup.send(
+                    "노래를 가져오는데 문제 발생. URL을 확인해주세요."
+                )
+                return
+
+            await self.queue.put(player)
+            position = self.queue.qsize()
+            if self.is_playing:
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title=f"{player.title}, #{position}번째로 대기열에 추가.",
+                        color=0x00F44C,
+                    )
+                )
+
+            # 현재 노래가 재생 중이 아니면 다음 곡 재생
+            if not self.is_playing and not interaction.guild.voice_client.is_paused():
+                await self.play_next(interaction)
+
+        select.callback = select_callback
+        await interaction.followup.send(view=view, ephemeral=True)
+
     @app_commands.command(name="재생", description="노래재생")
     @app_commands.describe(url="재생할 유튜브 URL 입력")
     async def play(self, interaction: discord.Interaction, url: str):
@@ -150,6 +213,7 @@ class Music(commands.Cog):
             embed = discord.Embed(
                 title="🎧 재생목록이 비어있어서 퇴장합니다.", color=0x00F44C
             )
+            await interaction.followup.send(embed=embed)
             await interaction.guild.voice_client.disconnect(force=True)
 
     async def get_youtube_id(self, url):
@@ -173,7 +237,6 @@ class Music(commands.Cog):
             interaction.guild.voice_client.stop()
             embed = discord.Embed(title="🎧 현재 노래를 건너뜁니다.", color=0x00F44C)
             await interaction.response.send_message(embed=embed)
-            await self.play_next(interaction)
         else:
             embed = discord.Embed(
                 title="🎧 현재 재생 중인 노래가 없습니다.", color=0x00F44C
