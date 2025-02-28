@@ -161,24 +161,29 @@ class Music(commands.Cog):
                     "음성 채널에 유저가 존재하지 않습니다. 1명 이상 입장해 주세요."
                 )
 
-        """대기열(큐)에 노래 추가 & 노래가 없으면 최근 노래 재생 (= !재생)"""
         discord.opus.load_opus("libopus.dylib")
-        player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
-        if player is None:
-            await interaction.response.send_message(
-                "노래를 가져오는데 문제 발생. URL을 확인해주세요."
-            )
-            return
-
-        await self.queue.put(player)
-        position = self.queue.qsize()
-        if self.is_playing:
-            await interaction.response.send_message(
-                embed=discord.Embed(
-                    title=f"{player.title}, #{position}번째로 대기열에 추가.",
-                    color=0x00F44C,
+        # 플레이 리스트인 경우
+        if list_id := await self._extract_lits_parameter(url):
+            await self._add_list_to_queue(list_id, interaction=interaction)
+        else:
+            # 단일 영상인 경우
+            """대기열(큐)에 노래 추가 & 노래가 없으면 최근 노래 재생 (= !재생)"""
+            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
+            if player is None:
+                await interaction.response.send_message(
+                    "노래를 가져오는데 문제 발생. URL을 확인해주세요."
                 )
-            )
+                return
+
+            await self.queue.put(player)
+            if self.is_playing:
+                position = self.queue.qsize()
+                await interaction.followup.send(
+                    embed=discord.Embed(
+                        title=f"{player.title}, #{position}번째로 대기열에 추가.",
+                        color=0x00F44C,
+                    )
+                )
 
         # 현재 노래가 재생 중이 아니면 다음 곡 재생
         if not self.is_playing and not interaction.guild.voice_client.is_paused():
@@ -369,3 +374,29 @@ class Music(commands.Cog):
             await interaction.response.send_message(
                 embed=discord.Embed(title="대기열이 비어 있습니다.", color=0x00F44C)
             )
+
+    async def _extract_lits_parameter(self, url: str) -> str | None:
+        """URL에서 플레이 리스트 파라미터 추출"""
+
+        pattern = r"[\?\&]list=([^&\s]+)"
+        match = re.search(pattern, url)
+        if match:
+            return match.group(1)
+        else:
+            return None
+
+    async def _add_list_to_queue(self, list_id: str, interaction: discord.Interaction):
+        """플레이 리스트 추가"""
+        path = f"https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&key={YOUTUBE_API_KEY}&maxResults=25&playlistId={list_id}"
+        res = requests.get(path)
+        items = res.json()["items"]
+        for item in items:
+            url = f"https://www.youtube.com/watch?v={item['snippet']['resourceId']['videoId']}"
+            player = await YTDLSource.from_url(url, loop=self.bot.loop, stream=True)
+            await self.queue.put(player)
+        await interaction.followup.send(
+            embed=discord.Embed(
+                title=f"{len(items)}개의 노래를 대기열에 추가.",
+                color=0x00F44C,
+            )
+        )
