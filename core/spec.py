@@ -171,8 +171,10 @@ class SpecClient(LostarkAPIClient):
             if part != "무기" and gear["grade"] == "고대":
                 inheritance += 1
             embed_string += f"**{part}** +{gear['enforce']}"
+            if gear["high_reforge_level"]:
+                embed_string += f" [상재 {gear['high_reforge_level']}]"
             if gear["transcendence_level"]:
-                embed_string += f" [<:transcendence:1342063927080648714> {gear['transcendence_level']}단계]\n"
+                embed_string += f" [<:transcendence:1342063927080648714> {gear['transcendence_level']}]\n"
             else:
                 embed_string += "\n"
             if elixirs := gear["elixir"]:
@@ -275,6 +277,15 @@ class SpecClient(LostarkAPIClient):
                 )
             except AttributeError:
                 gear_transcendence_level = None
+            try:
+                high_reforge_level = int(
+                    re.search(
+                        r"\[상급 재련\]</FONT> <[/A-Za-z ='#0-9]+>([0-9]+)</FONT>단계",
+                        tooltip,
+                    ).group(1)
+                )
+            except AttributeError:
+                high_reforge_level = None
             gear_elixir_infos = []
             if gear_type != "무기":
                 elixir_tooltips = re.findall(
@@ -294,6 +305,7 @@ class SpecClient(LostarkAPIClient):
                 "enforce": gear_enforce,
                 "transcendence_level": gear_transcendence_level,
                 "elixir": gear_elixir_infos,
+                "high_reforge_level": high_reforge_level,
             }
             gear_dict[gear_type] = gear_info
 
